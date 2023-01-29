@@ -1,10 +1,11 @@
 /**
  * Server for client/server steganography engine.
  *
- * Usage: ./stegserver [port]
+ * Usage: ./stegserver [-q] [port]
  */
 
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,46 +17,80 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-/* Argv                 */
-#define BAD_ARGC        3
-#define PORT            1
-#define USE_PORT		2
+/* Argv                 	*/
+#define ARGS_BEGIN			1
+#define ARGVINDRNG			3
+#define BAD_ARGC        	4
+#define PORT_DONE			128
+#define QUIET				"-q"
+#define QUIET_DONE			64
 
-/* Error Returns		*/
-#define BAD_PORT		1
+/* Error Handling			*/
+#define DESTROY_ABORT(s)	if (s) free(s); break
 
-/* IO					*/
-#define EOS				'\0'
-#define FREAD			"r"
-#define NEWLINE			'\n'
+/* Error Returns			*/
+#define GOOD				0
+#define BAD_ARGS			1
 
-/* Networking			*/
-#define CURL_EXEC_FAIL	"Goddammit curl"
-#define GET_IP			"curl", "curl", "ifconfig.me", NULL
-#define INVALID_PORT	0
+/* IO						*/
+#define EOS					'\0'
+#define FREAD				"r"
+#define NEWLINE				'\n'
 
-/* Pipes				*/
-#define FINAL           NULL, 0
-#define PIPE			2
-#define	READ			0
-#define WRITE			1
+/* Networking				*/
+#define CURL_EXEC_FAIL		"Goddammit curl"
+#define GET_IP				"curl", "curl", "ifconfig.me", NULL
+#define INVALID_PORT		0
+#define RAND_PORT			6
 
-bool			is_numeric	(char *				);
-uint16_t		validate	(int,		char **	);
+/* Pipes					*/
+#define FINAL           	NULL, 0
+#define PIPE				2
+#define	READ				0
+#define WRITE				1
 
-char		*	machine_ip	(void				);
-char		*	take_line	(FILE *,	int *	);
+/* Status					*/
+#define IP_STRLEN			22
+#define NIP_STRLEN			25
+#define START_NO_IP			"Server starting on port %s\n"
+#define START_WITH_IP		"Server starting on %s:%s\n"
+
+/* Strings					*/
+#define ASPRINTF_FAIL		-1
+#define SZALLOC(n)			calloc(n, sizeof(char))
+
+
+bool		is_numeric	(char *								);
+int			asprintf	(char **,	const char *,	...		);
+
+char	*	machine_ip	(void								);
+char	*	take_line	(FILE *,	int *					);
+char	*	validate	(int,		char **,		bool *	);
 
 int
 main(int argc, char **argv) {
-    uint16_t	port;
-    char		*ip;
+    int		portLen;
+    char	*ip, *message, *port;
+	bool	verbose;
 
-    port	= validate(argc, argv);
-    ip		= machine_ip();
+    port = validate(argc, argv, &verbose);
+	if (!port) return BAD_ARGS;
+	portLen = strlen(port);
+	if (verbose) {
+		ip = machine_ip();
+		message = SZALLOC(IP_STRLEN + strlen(ip) + portLen);
+		sprintf(message, START_WITH_IP, ip, port);
+		free(ip);
+	} else {
+		message = SZALLOC(NIP_STRLEN + portLen);
+	    sprintf(message, START_NO_IP, port);
+	}
 
-    printf("Server starting on %s:%d\n", ip, port);
-	free(ip);
+    printf("%s", message);
+	free(message);
+	free(port);
+
+	return (GOOD);
 }
 
 bool
@@ -68,24 +103,6 @@ is_numeric(char *test) {
 	while (verdict && isdigit(test[check])) check++;
 
 	return (verdict);
-}
-
-uint16_t
-validate(int argc, char **argv) {
-	char		*cand;
-	uint16_t	port;
-
-	port = INVALID_PORT;
-	if (argc >= BAD_ARGC) return (port);
-	if (argc == USE_PORT) {
-		cand = argv[PORT];
-		if (is_numeric(cand)) port = atoi(cand);
-	} else {
-		srand(time(NULL));
-		port = rand();
-	}
-
-	return (port);
 }
 
 char *
@@ -133,4 +150,43 @@ take_line(FILE *src, int *size) {
 	*size = len;
 
 	return (out);
+}
+
+char *
+validate(int argc, char **argv, bool *verb) {
+	char		*cand, *port;
+	uint16_t	tempPort;
+	uint8_t		check;
+
+	port	= NULL;
+	*verb	= true;
+	if (argc >= BAD_ARGC) return (port);
+	for (check = ARGS_BEGIN; (check & ARGVINDRNG) < argc; check++) {
+		cand = argv[(check & ARGVINDRNG)];
+		if (!strcmp(cand, QUIET)) {
+			if (check & QUIET_DONE) {
+				DESTROY_ABORT(port);
+			} else {
+				*verb = false;
+				check |= QUIET_DONE;
+			}
+		} else if (is_numeric(cand)) {
+			if (check & PORT_DONE) {
+				DESTROY_ABORT(port);
+			}
+			port	= strdup(cand);
+			check	|= PORT_DONE;
+		} else {
+			DESTROY_ABORT(port);
+		}
+	}
+
+	if (!(check & PORT_DONE)) {
+		port = SZALLOC(RAND_PORT);
+		srand(time(NULL));
+		tempPort = rand();
+		sprintf(port, "%d", tempPort);
+	}
+
+	return (port);
 }
