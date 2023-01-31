@@ -26,7 +26,7 @@
 #define QUIET_DONE			64
 
 /* Error Handling			*/
-#define DESTROY_ABORT(s)	if (s) free(s); break
+#define DESTROY_ABORT(s)	if (s) free(s); s = NULL; goto ABORT
 
 /* Error Returns			*/
 #define GOOD				0
@@ -100,7 +100,7 @@ is_numeric(char *test) {
 
 	check	= 0;
 	verdict	= true;
-	while (verdict && isdigit(test[check])) check++;
+	while ((verdict = isdigit(test[check]))) check++;
 
 	return (verdict);
 }
@@ -187,6 +187,8 @@ validate(int argc, char **argv, bool *verb) {
 		tempPort = rand();
 		sprintf(port, "%d", tempPort);
 	}
+
+ABORT:
 
 	return (port);
 }
