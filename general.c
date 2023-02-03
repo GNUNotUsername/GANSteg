@@ -36,7 +36,7 @@ init_connection(char *address, char **port, bool serverSide) {
         address         = NULL;
     }
 
-    err = getaddrinfo(address, *port, &crit, &addrList);
+    err = getaddrinfo(address, *port, &crits, &addrList);
     if (!err) {
         for (check = addrList; check != NULL; check = check->ai_next) {
             socketfd = socket(check->ai_family, check->ai_socktype,

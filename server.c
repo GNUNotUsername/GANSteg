@@ -5,6 +5,7 @@
  */
 
 #include <ctype.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -48,6 +49,7 @@
 #define FINAL               NULL, 0
 #define PIPE                2
 #define	READ                0
+#define SUPPRESS            "/dev/null"
 #define WRITE               1
 
 /* Status                   */
@@ -112,7 +114,7 @@ is_numeric(char *test) {
 char *
 machine_ip(void) {
     FILE    *child;
-    int     size, cStdout[PIPE];
+    int     size, suppress, cStdout[PIPE];
     pid_t   pid;
     char    *ip;
 
@@ -126,6 +128,8 @@ machine_ip(void) {
         fclose(child);
     } else {
         /* Child	*/
+        suppress = open(SUPPRESS, O_WRONLY);  
+        dup2(suppress, STDERR_FILENO);
         dup2(cStdout[WRITE], STDOUT_FILENO);
         close(cStdout[READ]);
         close(cStdout[WRITE]);
