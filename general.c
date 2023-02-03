@@ -14,6 +14,18 @@
 #define INVALID_SOCKET_FD   -1
 #define PORTSIZE            6
 
+
+/**
+ *  Open a socket; can be used by both client and server side.
+ *
+ *  address - Address of server if used by client, ignored if used by server.
+ *  port    - Reference to port to listen on / connect to.
+ *              If ephemeral port "0" was used, reference is updated to new
+ *              string containing port selected by the kernel
+ *  bool    - True iff called by server process; else false
+ *
+ *  return  - Resulting network socket or error code
+ */
 int
 init_connection(char *address, char **port, bool serverSide) {
     struct addrinfo     *addrList, *check, crits;

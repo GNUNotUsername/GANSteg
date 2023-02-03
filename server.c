@@ -80,6 +80,13 @@ main(int argc, char **argv) {
     return (GOOD);
 }
 
+/**
+ *  Open a socket and service incoming connections
+ *
+ *  addr    - Public IPv4 address of this server.
+ *  port    - Port top listen on; ephemeral "0" for random selected by kernel.
+ *  verbose - True to display server public IPv4 address; else false.
+ */
 void
 accept_connections(char *addr, char *port, bool verbose) {
     int     serverfd;
@@ -99,6 +106,10 @@ accept_connections(char *addr, char *port, bool verbose) {
     free(tport);
 }
 
+/**
+ * returns  - True iff `test` contains only ascii digits and a NUL-terminator.
+ * requires - `test` is NUL-terminated.
+ */
 bool
 is_numeric(char *test) {
 	bool    verdict;
@@ -111,6 +122,11 @@ is_numeric(char *test) {
     return (verdict);
 }
 
+/**
+ *  returns - The public IPv4 address of this machine.
+ *  NOTE:   - There is almost definitely a better way than this.
+ *              This should be fixed later.
+ */
 char *
 machine_ip(void) {
     FILE    *child;
@@ -140,6 +156,14 @@ machine_ip(void) {
     return (ip);
 }
 
+/**
+ *  Read one string terminated by a newline or a NUL terminator from a stream.
+ *
+ *  src     - File stream to read from.
+ *  size    - Reference to length of string read.
+ *
+ *  return  - NUL-terminated line taken from `src`.
+ */
 char *
 take_line(FILE *src, int *size) {
     char    add, *out;
@@ -149,17 +173,31 @@ take_line(FILE *src, int *size) {
     len	= 0;
     while (!(feof(src) || ferror(src))) {
         add = fgetc(src);
-        if (add == EOF) break;
-        if (add == NEWLINE) add = EOS;
+        if ((add == NEWLINE) || (add == EOF)) add = EOS;
         out = realloc(out, sizeof(char) * (len + 1));
         out[len++] = add;
     }
 
+    /* Just in case the first thing read is EOF or an empty string  */
+    if (len == EMPTY) {
+        free(out);
+        out = NULL;
+        len = 0;
+    }
     *size = len;
 
     return (out);
 }
 
+/**
+ *  Determine whether or not entered cmdline args were legal.
+ *
+ *  argc    - Argument count
+ *  argv    - Argument vectors
+ *  verb    - Reference to whether or not to display machine IP.
+ *
+ *  return  - The (possibly ephemeral) port to open the server on.
+ */
 char *
 validate(int argc, char **argv, bool *verb) {
     char        *cand, *port;
