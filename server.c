@@ -14,6 +14,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <netinet/in.h>
+
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -27,14 +30,24 @@
 #define QUIET               "-q"
 #define QUIET_DONE          64
 
+/* Control Flow             */
+#define EVER                ;;
+
 /* Error Handling           */
 #define DESTROY_ABORT(s)    if (s) free(s); s = NULL; goto ABORT
 
 /* Error Returns            */
 #define GOOD                0
 #define BAD_ARGS            1
+#define SOCKFAIL            2
+#define FCNTLFAIL           3
+
+/* File Descriptors         */
+#define ACCEPT_FAIL         -1
+#define FCNTL_FAIL          -1
 
 /* IO                       */
+#define EMPTY               1
 #define EOS                 '\0'
 #define FREAD               "r"
 #define NEWLINE             '\n'
@@ -59,12 +72,14 @@
 #define SERVER_SOCKET_FAIL  "%s\n", "Could not create socket."
 
 
-void        accept_connections  (char *,         char *,    bool    );
-bool        is_numeric	        (char *                             );
+int         accept_connections  (char *,    char *,     bool    );
+int         reap                (pid_t **,  int                 );
+void        service             (int                            );
+bool        is_numeric          (char *                         );
 
-char    *   machine_ip          (void                               );
-char    *   take_line	        (FILE *,    int *                   );
-char    *   validate            (int,       char **,        bool *  );
+char    *   machine_ip          (void                           );
+char    *   take_line	        (FILE *,    int *               );
+char    *   validate            (int,       char **,    bool *  );
 
 int
 main(int argc, char **argv) {
@@ -80,30 +95,10 @@ main(int argc, char **argv) {
     return (GOOD);
 }
 
-/**
- *  Open a socket and service incoming connections
- *
- *  addr    - Public IPv4 address of this server.
- *  port    - Port top listen on; ephemeral "0" for random selected by kernel.
- *  verbose - True to display server public IPv4 address; else false.
- */
 void
-accept_connections(char *addr, char *port, bool verbose) {
-    int     serverfd;
-    char    *message, *tport;
-
-    tport       = strdup(port);
-    serverfd    = init_connection(NULL, &tport, SERVERSIDE);
-    if (serverfd) {
-        message = SZALLOC(STARTLEN);
-        if (verbose) sprintf(message, START_WITH_IP, addr, tport);
-        else sprintf(message, START_NO_IP, tport);
-        printf("%s", message);
-        printf("%d\n", serverfd);
-        free(message);
-    } else printf(SERVER_SOCKET_FAIL);
-    free(port);
-    free(tport);
+service(int client) {
+    printf("We got a connection on socket %d yayyyyyyy\n", client);
+    close(client);
 }
 
 /**
@@ -120,6 +115,88 @@ is_numeric(char *test) {
     while ((test[check]) && (verdict = isdigit(test[check]))) check++;
 
     return (verdict);
+}
+
+/**
+ *  Open a socket and service incoming connections
+ *
+ *  addr    - Public IPv4 address of this server.
+ *  port    - Port top listen on; ephemeral "0" for random selected by kernel.
+ *  verbose - True to display server public IPv4 address; else false.
+ *
+ *  return  - error code on failure; else non-terminating.
+ */
+int
+accept_connections(char *addr, char *port, bool verbose) {
+    int                 client,     conns, serverfd;
+    char                *message,   *tport;
+    socklen_t           clSiz;
+    pid_t               handler,    *openConns;
+    struct sockaddr_in  clAddr;
+
+    tport       = strdup(port);
+    serverfd    = init_connection(NULL, &tport, SERVERSIDE);
+    if (serverfd != INVALID_SOCKET_FD) {
+        message = SZALLOC(STARTLEN);
+        if (verbose) sprintf(message, START_WITH_IP, addr, tport);
+        else sprintf(message, START_NO_IP, tport);
+        printf("%s", message);
+        printf("%d\n", serverfd);
+        free(message);
+    } else printf(SERVER_SOCKET_FAIL);
+
+    free(port);
+    free(tport);
+    if (serverfd == INVALID_SOCKET_FD)                      return (SOCKFAIL);
+    if (fcntl(serverfd, F_SETFL, O_NONBLOCK) == FCNTL_FAIL) return (FCNTLFAIL);
+    openConns   = NULL;
+    conns       = 0;
+
+    for (EVER) {
+        clSiz   = sizeof(struct sockaddr_in);
+        client  = accept(serverfd, (struct sockaddr *)&clAddr, &clSiz);
+        if (client == ACCEPT_FAIL) conns = reap(&openConns, conns);
+        else {
+            handler = fork();
+            if (handler) {
+                openConns = realloc(openConns, conns + 1);
+                openConns[conns++] = handler;
+            } else {
+                service(client);
+                break;
+            }
+        }
+    }
+
+    return (GOOD);
+}
+
+/**
+ *  Reap old service processes.
+ *
+ *  active  - Reference to buffer of IDs for all active service processes.
+ *  len     - The number of currently active service processes.
+ *
+ *  return  - The number of processes still alive.
+ */
+int
+reap(pid_t **active, int len) {
+    int     check,  kept;
+    pid_t   cand,   *alive;
+
+    /* There's gotta be a better way of doing this. I'm tired ok    */
+    alive = NULL;
+    for (check = kept = 0; check < len; check++) {
+        cand = (*active)[check];
+        if (!waitpid(cand, NULL, WNOHANG)) {
+            alive = realloc(alive, sizeof(pid_t) * (kept + 1));
+            alive[kept++] = cand;
+        }
+    }
+
+    *active = alive;
+
+    return (kept);
 }
 
 /**

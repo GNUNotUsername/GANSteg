@@ -11,7 +11,6 @@
 #include "general.h"
 
 /* Networking               */
-#define INVALID_SOCKET_FD   -1
 #define PORTSIZE            6
 
 
