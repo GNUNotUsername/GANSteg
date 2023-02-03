@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,9 +16,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-/* Argv                 	*/
-#define ARGS_BEGIN			1
-#define ARGVINDRNG			3
+#include "general.h"
+
+/* Argv                     */
+#define ARGS_BEGIN          1
+#define ARGVINDRNG          3
 #define BAD_ARGC        	4
 #define PORT_DONE			128
 #define QUIET				"-q"
@@ -50,47 +51,51 @@
 #define WRITE				1
 
 /* Status					*/
-#define IP_STRLEN			22
-#define NIP_STRLEN			25
-#define START_NO_IP			"Server starting on port %s\n"
-#define START_WITH_IP		"Server starting on %s:%s\n"
-
-/* Strings					*/
-#define ASPRINTF_FAIL		-1
-#define SZALLOC(n)			calloc(n, sizeof(char))
+#define STARTLEN            42
+#define START_WITH_IP       "Server starting on %s:%s\n"
+#define START_NO_IP         "Server starting on port %s\n"
+#define SERVER_SOCKET_FAIL  "%s\n", "Could not create socket."
 
 
-bool		is_numeric	(char *								);
-int			asprintf	(char **,	const char *,	...		);
+void        accept_connections  (char *,         char*,  bool       );
+bool		is_numeric	        (char *								);
+int			asprintf	        (char **,	const char *,	...		);
 
-char	*	machine_ip	(void								);
-char	*	take_line	(FILE *,	int *					);
-char	*	validate	(int,		char **,		bool *	);
+char	*	machine_ip	        (void								);
+char	*	take_line	        (FILE *,	int *					);
+char	*	validate	        (int,		char **,		bool *  );
 
 int
 main(int argc, char **argv) {
-    int		portLen;
-    char	*ip, *message, *port;
+    char	*ip, *port;
 	bool	verbose;
 
     port = validate(argc, argv, &verbose);
 	if (!port) return BAD_ARGS;
-	portLen = strlen(port);
-	if (verbose) {
-		ip = machine_ip();
-		message = SZALLOC(IP_STRLEN + strlen(ip) + portLen);
-		sprintf(message, START_WITH_IP, ip, port);
-		free(ip);
-	} else {
-		message = SZALLOC(NIP_STRLEN + portLen);
-	    sprintf(message, START_NO_IP, port);
-	}
-
-    printf("%s", message);
-	free(message);
-	free(port);
+	ip = machine_ip();
+	
+	accept_connections(ip, port, verbose);
 
 	return (GOOD);
+}
+
+void
+accept_connections(char *addr, char *port, bool verbose) {
+	int     serverfd;
+    char    *message, *tport;
+
+    tport       = strdup(port);
+	serverfd    = init_connection(NULL, &tport, SERVERSIDE);
+    if (serverfd) {
+        message = SZALLOC(STARTLEN);
+        if (verbose) sprintf(message, START_WITH_IP, addr, tport);
+        else sprintf(message, START_NO_IP, tport);
+        printf("%s", message);
+        printf("%d\n", serverfd);
+        free(message);
+    } else printf(SERVER_SOCKET_FAIL);
+    free(port);
+    free(tport);
 }
 
 bool
@@ -100,7 +105,7 @@ is_numeric(char *test) {
 
 	check	= 0;
 	verdict	= true;
-	while ((verdict = isdigit(test[check]))) check++;
+	while ((test[check]) && (verdict = isdigit(test[check]))) check++;
 
 	return (verdict);
 }
@@ -155,7 +160,6 @@ take_line(FILE *src, int *size) {
 char *
 validate(int argc, char **argv, bool *verb) {
 	char		*cand, *port;
-	uint16_t	tempPort;
 	uint8_t		check;
 
 	port	= NULL;
@@ -181,12 +185,7 @@ validate(int argc, char **argv, bool *verb) {
 		}
 	}
 
-	if (!(check & PORT_DONE)) {
-		port = SZALLOC(RAND_PORT);
-		srand(time(NULL));
-		tempPort = rand();
-		sprintf(port, "%d", tempPort);
-	}
+	if (!(check & PORT_DONE)) port = strdup(EPHEMERAL);
 
 ABORT:
 
