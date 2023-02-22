@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "general.h"
 
@@ -40,14 +41,18 @@ int
 main(int argc, char **argv) {
     STEPPED;
     Options options;
+    int     sockfd;
 
     STATUPD(validate(argc, argv, &options));
+    STEP {
+        sockfd = init_connection(options.addr, &(options.port), CLIENTSIDE);
+        if (sockfd == INVALID_SOCKET_FD) STATUPD(SOCKFAIL);
+    }
 
-    /* temp */
-    printf("%s:%s\n", (options.addr ? options.addr : "NOADDR"),
-                (options.port ? options.port : "NOPORT"));
-    printf("%s\n", (options.contents ? options.contents : "NOCONTENTS"));
-    printf("%d %d\n", options.len, options.dir);
+    // TEMP
+    STEP write(sockfd, "Henlo :)\n", 9);
+
+    for (EVER);
 
     return (status);
 }

@@ -4,12 +4,12 @@
 
 
 /*  Control Flow            */
+#define EVER                ;;
 #define FAULT               if (status != GOOD)
 #define SAFE_KILL(p)        if (p) free(p)
 #define STEP                if (status == GOOD)
 #define STEPPED             Status status = GOOD
 #define STATUPD(e)          status = e
-
 
 /*  File I/O                */
 #define FREAD               "r"
@@ -17,6 +17,7 @@
 #define SUPPRESS            false
 
 /*  Networking              */
+#define CLIENTSIDE          false
 #define EPHEMERAL           "0"
 #define INVALID_SOCKET_FD   -1
 #define PORTSIZE            6

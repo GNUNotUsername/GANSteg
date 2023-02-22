@@ -31,7 +31,6 @@
 #define QUIET_DONE          64
 
 /*  Control Flow            */
-#define EVER                ;;
 
 /*  Error Handling          */
 #define DESTROY_ABORT(s)    if (s) free(s); s = NULL; goto ABORT
