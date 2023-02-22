@@ -1,7 +1,7 @@
 #include <limits.h>
 #include <netdb.h>
 #include <stdbool.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <strings.h>
 #include <unistd.h>
 
@@ -10,9 +10,32 @@
 
 #include "general.h"
 
+
+/*  IO                      */
+#define EMPTY               1
+#define EOS                 '\0'
+#define NEWLINE             '\n'
+
 /* Networking               */
 #define PORTSIZE            6
 
+
+/**
+ * returns  - True iff `test` contains only ascii digits and a NUL-terminator.
+ * requires - `test` is NUL-terminated.
+ */
+bool
+is_numeric(char *test) {
+    bool    verdict;
+    int     check;
+
+    check   = 0;
+    verdict = true;
+
+    while ((test[check]) && (verdict = isdigit(test[check]))) check++;
+
+    return (verdict);
+}
 
 /**
  *  Open a socket; can be used by both client and server side.
@@ -85,4 +108,38 @@ init_connection(char *address, char **port, bool serverSide) {
     }
 
     return (socketfd);
+}
+
+/**
+ *  Read one NUL / newline terminated string from a stream.
+ *
+ *  src         - File stream to read from.
+ *  size        - Reference to length of string read.
+ *  newlines    - Whether or not to suppress newlines
+ *
+ *  return      - NUL-terminated line taken from `src`.
+ */
+char *
+take_line(FILE *src, int *size, bool newlines) {
+    char    add, *out;
+    int     len;
+
+    out = NULL;
+    len = 0;
+    while (!(feof(src) || ferror(src))) {
+        add = fgetc(src);
+        if ((!newlines && (add == NEWLINE)) || (add == EOF)) add = EOS;
+        out = realloc(out, sizeof(char) * (len + 1));
+        out[len++] = add;
+    }
+
+    /* Just in case the first thing read is EOF or an empty string  */
+    if (len == EMPTY) {
+        free(out);
+        out = NULL;
+        len = 0;
+    }
+    *size = len;
+
+    return (out);
 }

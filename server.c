@@ -1,15 +1,15 @@
 /**
- * Server for client/server steganography engine.
+ *  Server for client/server steganography engine.
  *
- * Usage: ./stegserver [-q] [port]
+ *  Usage: ./stegserver [-q] [port]
  */
 
-#include <ctype.h>
+//#include <ctype.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -22,7 +22,7 @@
 
 #include "general.h"
 
-/* Argv                     */
+/*  Argv                    */
 #define ARGS_BEGIN          1
 #define ARGVINDRNG          3
 #define BAD_ARGC            4
@@ -30,42 +30,38 @@
 #define QUIET               "-q"
 #define QUIET_DONE          64
 
-/* Control Flow             */
+/*  Control Flow            */
 #define EVER                ;;
 
-/* Error Handling           */
+/*  Error Handling          */
 #define DESTROY_ABORT(s)    if (s) free(s); s = NULL; goto ABORT
 
-/* Error Returns            */
+/*  Error Returns           */
 #define GOOD                0
 #define BAD_ARGS            1
 #define SOCKFAIL            2
 #define FCNTLFAIL           3
 
-/* File Descriptors         */
+/*  File Descriptors        */
 #define ACCEPT_FAIL         -1
 #define FCNTL_FAIL          -1
 
-/* IO                       */
-#define EMPTY               1
-#define EOS                 '\0'
-#define FREAD               "r"
-#define NEWLINE             '\n'
+/*  IO                      */
 
-/* Networking               */
+/*  Networking              */
 #define CURL_EXEC_FAIL      "Goddammit curl"
 #define GET_IP              "curl", "curl", "ifconfig.me", NULL
 #define INVALID_PORT        0
 #define RAND_PORT           6
 
-/* Pipes                    */
+/*  Pipes                   */
 #define FINAL               NULL, 0
 #define PIPE                2
 #define	READ                0
-#define SUPPRESS            "/dev/null"
+#define SUPPRESS_OUTP       "/dev/null"
 #define WRITE               1
 
-/* Status                   */
+/*  Status                  */
 #define STARTLEN            42
 #define START_WITH_IP       "Server starting on %s:%s\n"
 #define START_NO_IP         "Server starting on port %s\n"
@@ -75,10 +71,8 @@
 int         accept_connections  (char *,    char *,     bool    );
 int         reap                (pid_t **,  int                 );
 void        service             (int                            );
-bool        is_numeric          (char *                         );
 
 char    *   machine_ip          (void                           );
-char    *   take_line	        (FILE *,    int *               );
 char    *   validate            (int,       char **,    bool *  );
 
 int
@@ -99,22 +93,6 @@ void
 service(int client) {
     printf("We got a connection on socket %d yayyyyyyy\n", client);
     close(client);
-}
-
-/**
- * returns  - True iff `test` contains only ascii digits and a NUL-terminator.
- * requires - `test` is NUL-terminated.
- */
-bool
-is_numeric(char *test) {
-	bool    verdict;
-    int     check;
-
-    check   = 0;
-    verdict = true;
-    while ((test[check]) && (verdict = isdigit(test[check]))) check++;
-
-    return (verdict);
 }
 
 /**
@@ -217,11 +195,11 @@ machine_ip(void) {
         close(cStdout[WRITE]);
         waitpid(pid, FINAL);
         child = fdopen(cStdout[READ], FREAD);
-        ip = take_line(child, &size);
+        ip = take_line(child, &size, SUPPRESS);
         fclose(child);
     } else {
         /* Child	*/
-        suppress = open(SUPPRESS, O_WRONLY);  
+        suppress = open(SUPPRESS_OUTP, O_WRONLY);  
         dup2(suppress, STDERR_FILENO);
         dup2(cStdout[WRITE], STDOUT_FILENO);
         close(cStdout[READ]);
@@ -231,39 +209,6 @@ machine_ip(void) {
     }
 
     return (ip);
-}
-
-/**
- *  Read one string terminated by a newline or a NUL terminator from a stream.
- *
- *  src     - File stream to read from.
- *  size    - Reference to length of string read.
- *
- *  return  - NUL-terminated line taken from `src`.
- */
-char *
-take_line(FILE *src, int *size) {
-    char    add, *out;
-    int     len;
-
-    out = NULL;
-    len	= 0;
-    while (!(feof(src) || ferror(src))) {
-        add = fgetc(src);
-        if ((add == NEWLINE) || (add == EOF)) add = EOS;
-        out = realloc(out, sizeof(char) * (len + 1));
-        out[len++] = add;
-    }
-
-    /* Just in case the first thing read is EOF or an empty string  */
-    if (len == EMPTY) {
-        free(out);
-        out = NULL;
-        len = 0;
-    }
-    *size = len;
-
-    return (out);
 }
 
 /**
