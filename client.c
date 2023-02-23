@@ -50,9 +50,13 @@ main(int argc, char **argv) {
     }
 
     // TEMP
-    STEP write(sockfd, "Henlo :)\n", 9);
-
-    for (EVER);
+    STEP {
+        FILE *a = fdopen(sockfd, READWRITE);
+        int c;
+        char *b = take_line(a, &c, SUPPRESS);
+        printf("%s\n", b);
+        free(b);
+    }
 
     return (status);
 }
@@ -91,7 +95,7 @@ validate(int argc, char **argv, Options *options) {
 
     if (!options) { STATUPD(BAD_FN_USAGE); }
     bzero(options, sizeof(Options));
-    addrPort = NULL;
+    addrPort = addr = port = NULL;
 
     STEP { if (argc != GOOD_ARGC) STATUPD(BAD_ARGS); }
 

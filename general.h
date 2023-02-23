@@ -14,6 +14,7 @@
 /*  File I/O                */
 #define FREAD               "r"
 #define KEEP_NL             true
+#define READWRITE           "r+"
 #define SUPPRESS            false
 
 /*  Networking              */

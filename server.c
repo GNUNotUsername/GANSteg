@@ -88,10 +88,24 @@ main(int argc, char **argv) {
     return (GOOD);
 }
 
+/**
+ *  Handle transactions with a new client.
+ *
+ *  client  - socket file descriptor of relevant client.
+ */
 void
 service(int client) {
-    printf("We got a connection on socket %d yayyyyyyy\n", client);
-    close(client);
+    FILE    *stream;
+    char    *line;
+    int     len;
+
+    printf("Servicing %d\n", client);
+    stream  = fdopen(client, READWRITE);
+    line    = take_line(stream, &len, SUPPRESS);
+    printf("%s\n", line);
+    fprintf(stream, "hi :)\n");
+    fflush(stream);
+    free(line);
 }
 
 /**
@@ -136,9 +150,11 @@ accept_connections(char *addr, char *port, bool verbose) {
         else {
             handler = fork();
             if (handler) {
+                // Parent
                 openConns = realloc(openConns, conns + 1);
                 openConns[conns++] = handler;
             } else {
+                // Child
                 service(client);
                 break;
             }
@@ -161,14 +177,13 @@ reap(pid_t **active, int len) {
     int     check,  kept;
     pid_t   cand,   *alive;
 
-    /* There's gotta be a better way of doing this. I'm tired ok    */
     alive = NULL;
     for (check = kept = 0; check < len; check++) {
         cand = (*active)[check];
         if (!waitpid(cand, NULL, WNOHANG)) {
             alive = realloc(alive, sizeof(pid_t) * (kept + 1));
             alive[kept++] = cand;
-        }
+        } else printf("Reaped %d\n", cand);
     }
 
     *active = alive;
@@ -183,6 +198,12 @@ reap(pid_t **active, int len) {
  */
 char *
 machine_ip(void) {
+    /*
+     * This confuses GDB; hardcode for now to avoid forks
+     */
+
+    return (strdup("localhost"));
+    /*
     FILE    *child;
     int     size, suppress, cStdout[PIPE];
     pid_t   pid;
@@ -190,14 +211,14 @@ machine_ip(void) {
 
     pipe(cStdout);
     if ((pid = fork())) {
-        /* Parent	*/
+        // Parent
         close(cStdout[WRITE]);
         waitpid(pid, FINAL);
         child = fdopen(cStdout[READ], FREAD);
         ip = take_line(child, &size, SUPPRESS);
         fclose(child);
     } else {
-        /* Child	*/
+        // Child
         suppress = open(SUPPRESS_OUTP, O_WRONLY);  
         dup2(suppress, STDERR_FILENO);
         dup2(cStdout[WRITE], STDOUT_FILENO);
@@ -208,6 +229,7 @@ machine_ip(void) {
     }
 
     return (ip);
+    */
 }
 
 /**

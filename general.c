@@ -131,6 +131,7 @@ take_line(FILE *src, int *size, bool newlines) {
         if ((!newlines && (add == NEWLINE)) || (add == EOF)) add = EOS;
         out = realloc(out, sizeof(char) * (len + 1));
         out[len++] = add;
+        if (!add || (!newlines && (add == NEWLINE))) break;
     }
 
     /* Just in case the first thing read is EOF or an empty string  */
