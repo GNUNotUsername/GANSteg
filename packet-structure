@@ -1,0 +1,6 @@
+Field       Bsize           Remainder   Notes
+pcolsign    4               65531
+packetsize  n               65531 - n   Ascii numerals, nultermed
+mac         64              65367 - n   not applicable for rsa keyex phase
+ratchet     256             65111 - n   applicable only after dhke
+contents    <= 65111 - n    0         
