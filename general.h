@@ -11,6 +11,9 @@
 #define STEPPED             Status status = GOOD
 #define STATUPD(e)          status = e
 
+/*  Cryptography            */
+#define PRIME_LEN           2048
+
 /*  File I/O                */
 #define FREAD               "r"
 #define KEEP_NL             true
@@ -37,6 +40,7 @@ typedef enum {
     BAD_PORT_C      = 5,
     BAD_MODE_C      = 6,
     BAD_MTYPE_C     = 7,
+    OPENSSL_FAILURE = 253,
     FILE_NONEXIST   = 254,
     BAD_FN_USAGE    = 255
 } Status;

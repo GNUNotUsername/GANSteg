@@ -4,17 +4,17 @@
  *  Usage: ./stegserver [-q] [port]
  */
 
-//#include <ctype.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-//#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <netinet/in.h>
+
+#include <openssl/bn.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -31,6 +31,9 @@
 #define QUIET_DONE          64
 
 /*  Control Flow            */
+
+/*  Cryptography            */
+#define SAFE                true
 
 /*  Error Handling          */
 #define DESTROY_ABORT(s)    if (s) free(s); s = NULL; goto ABORT
@@ -88,6 +91,36 @@ main(int argc, char **argv) {
     return (GOOD);
 }
 
+void
+dhke_server(FILE *client) {
+    /*  Weird linking errors are happening with openssl/dh
+        Ideally DHKE shouldn't be homebrewed out of principle
+        but I have no other real choice rn.
+        Sad but true
+        Also this is slow as hell -- delegate to daemon?
+     */
+    STEPPED;
+    BIGNUM  *prime;
+    char    *rep;
+
+    prime = BN_secure_new();
+    if (!prime) STATUPD(OPENSSL_FAILURE);
+    STEP {
+        if (!BN_generate_prime_ex(prime, PRIME_LEN, SAFE, NULL, NULL, NULL))
+            STATUPD(OPENSSL_FAILURE);
+    }
+
+    STEP {
+        rep = BN_bn2hex(prime);
+        printf("%s\n", rep);
+        fprintf(client, "%s\n", rep);
+        fflush(client);
+        OPENSSL_clear_free(rep, strlen(rep));
+    }
+
+    if (prime) BN_clear_free(prime);
+}
+
 /**
  *  Handle transactions with a new client.
  *
@@ -96,16 +129,10 @@ main(int argc, char **argv) {
 void
 service(int client) {
     FILE    *stream;
-    char    *line;
-    int     len;
 
     printf("Servicing %d\n", client);
     stream  = fdopen(client, READWRITE);
-    line    = take_line(stream, &len, SUPPRESS);
-    printf("%s\n", line);
-    fprintf(stream, "hi :)\n");
-    fflush(stream);
-    free(line);
+    dhke_server(stream);
 }
 
 /**

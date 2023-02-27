@@ -7,7 +7,7 @@ CFLAGS= -Wall -pedantic --std=gnu99 -g
 all: server client #steg
 
 server: server.o general.o
-	$(CC) $(CFLAGS) server.o general.o -o stegserver
+	$(CC) $(CFLAGS) server.o general.o -o stegserver -lcrypto
 
 client: client.o general.o
 	$(CC) $(CFLAGS) client.o general.o -o stegclient
